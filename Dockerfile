@@ -4,9 +4,9 @@ COPY . .
 RUN mvn clean install -DskipTests
 
 # Step 2: Run the application
-FROM openjdk:17-jdk-slim
-# Tesseract install karne ke liye (Ye ENTRYPOINT se pehle hona chahiye)
-RUN apt-get update && apt-get install -y tesseract-ocr && rm -rf /var/lib/apt/lists/*
+# Maine yahan image ka naam change kiya hai jo stable hai
+FROM openjdk:17-oracle 
+RUN microdnf install -y tesseract tesseract-langpack-eng && microdnf clean all
 
 COPY --from=build /target/*.jar app.jar
 EXPOSE 8080
