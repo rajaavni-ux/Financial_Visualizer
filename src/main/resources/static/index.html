@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Finance Visualizer Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body { background: radial-gradient(circle at top right, #1a1a2e, #16213e); color: white; font-family: 'Poppins', sans-serif; min-height: 100vh; }
+        .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; }
+        .btn-scan { background: linear-gradient(135deg, #e94560, #ff2e63); border: none; color: white; padding: 12px; font-weight: 600; border-radius: 12px; width: 100%; transition: 0.3s; }
+        .amount-text { color: #00d2ff; font-weight: 600; }
+        
+        #binduAunty { 
+            display: none; position: fixed; bottom: 25px; left: 25px; /* Left Side Fix */
+            width: 320px; z-index: 1000; border-left: 5px solid #e94560;
+            animation: slideInLeft 0.6s ease; 
+        }
+        @keyframes slideInLeft { from { transform: translateX(-110%); } to { transform: translateX(0); } }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container py-5">
+        <h1 class="text-center mb-5 fw-bold">📊 Finance <span style="color: #e94560;">Visualizer</span></h1>
+        <div class="row g-4">
+            <div class="col-md-5">
+                <div class="glass-card shadow-lg">
+                    <h4 class="mb-4">Scan New Receipt</h4>
+                    <form id="uploadForm">
+                        <input type="file" name="file" class="form-control bg-dark text-white mb-3" accept="image/*" required>
+                        <button type="submit" class="btn-scan"><span id="btnText">🚀 Analyze & Save</span></button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-md-7">
+                <div class="glass-card mb-4 text-center">
+                    <span class="text-secondary small">TOTAL EXPENSES</span>
+                    <h2 class="mb-0 fw-bold" id="totalAmount">₹0.00</h2>
+                </div>
+                <div class="glass-card mb-4">
+                <h6 class="text-secondary small mb-3 text-center">EXPENSE TREND</h6>
+                 <div style="height: 220px; position: relative;">
+                <canvas id="expenseChart"></canvas>
+                 </div>
+                </div>
+                <div class="glass-card">
+                    <table class="table table-dark table-hover">
+                        <thead><tr class="text-secondary small"><th>ID</th><th>STATUS</th><th>AMOUNT</th><th>ACTION</th></tr></thead>
+                        <tbody id="receiptTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="binduAunty" class="card shadow-lg border-0 bg-dark text-white rounded-4 overflow-hidden">
+        <div class="card-body d-flex align-items-center bg-light text-dark p-3">
+            <img src="https://img.freepik.com/premium-vector/south-asian-elderly-woman-doing-community-service_1238364-71218.jpg?semt=ais_user_personalization&w=740&q=80" 
+                 width="60" height="60" class="me-3 rounded-circle" style="object-fit: cover; border: 2px solid #e94560;">
+            <div>
+                <strong class="d-block" style="color: #e94560;">Bindu Aunty Says:</strong>
+                <small id="auntyMessage" class="fw-bold"></small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadReceipts() {
+            const res = await fetch('/api/all');
+            const data = await res.json();
+            const total = data.reduce((sum, r) => sum + (r.amount || 0), 0);
+            document.getElementById('totalAmount').innerText = `₹${total.toFixed(2)}`;
+
+            const auntyBox = document.getElementById('binduAunty');
+            const auntyMsg = document.getElementById('auntyMessage');
+            if (total > 500) {
+                auntyBox.style.display = 'block';
+                auntyMsg.innerText = `Beta, ₹${total.toFixed(0)} kharch diye? Savings karo!`;
+            } else if (total > 0) {
+                auntyBox.style.display = 'block';
+                auntyMsg.innerText = "Shabaash beta! Control mein hai.";
+            }
+
+            document.getElementById('receiptTableBody').innerHTML = data.map(r => `
+                <tr class="align-middle"><td>#${r.id}</td><td><span class="badge bg-success">Stored</span></td>
+                <td class="amount-text">₹${r.amount.toFixed(2)}</td>
+                <td><button class="btn btn-sm btn-outline-danger" onclick="deleteReceipt(${r.id})">🗑️</button></td></tr>
+            `).join('');
+            updateChart(data);
+        }
+
+        let myChart = null; 
+
+function updateChart(data) {
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+    const labels = data.slice(-7).map(r => `Bill #${r.id}`);
+    const amounts = data.slice(-7).map(r => r.amount);
+
+    if (myChart) { myChart.destroy(); }
+
+    myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Kharcha (₹)',
+                data: amounts,
+                borderColor: '#e94560', // Aunty ke theme wala pink
+                backgroundColor: 'rgba(233, 69, 96, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+        document.getElementById('uploadForm').onsubmit = async (e) => {
+            e.preventDefault();
+            document.getElementById('btnText').innerText = "⌛ Scanning...";
+            const res = await fetch('/api/upload', { method: 'POST', body: new FormData(e.target) });
+            if(!res.ok) alert("Scan failed! Try a clearer photo.");
+            document.getElementById('btnText').innerText = "🚀 Analyze & Save";
+            loadReceipts();
+            e.target.reset();
+        };
+
+        async function deleteReceipt(id) { if(confirm("Uda dein?")) { await fetch(`/api/delete/${id}`, {method:'DELETE'}); loadReceipts(); } }
+        window.onload = loadReceipts;
+    </script>
+</body>
+</html>
